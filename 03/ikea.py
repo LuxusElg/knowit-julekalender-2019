@@ -45,7 +45,7 @@ class Drawer:
         #2184 * 330
         #2288 * 315
         #2310 * 312
-        xlen = 858
+        xlen = 1287
         ylen = int(len(self.list) / xlen)
         print(xlen, ylen)
         image = Image.new('1', (xlen,ylen), 1)
