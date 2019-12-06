@@ -3,42 +3,50 @@ module Main
 
 import Data.Bits
 
-import Codec.Picture
-import Codec.Picture.Types
---import Graphics.Image
+import Prelude as P
+import Graphics.Image as I
+import Graphics.Image.IO
+import Graphics.Image.Interface
 
 xorList :: [Int] -> [Int] -> [Int]
-xorList = zipWith xor
+xorList = P.zipWith xor
 
 getPair :: [[Int]] -> [[Int]]
 getPair pixels =
     let pair = take 2 pixels in
-        if length pair > 1
-            then
-                let newPixel = xorList (head pair) (pair !! 1) in
-                    newPixel : getPair (newPixel : (drop 1 (tail pixels)))
-            else
-                []
+        case (length pair) of
+            0 -> []
+            1 -> []
+            2 -> let newPixel = xorList (head pair) (last pair) in
+                    newPixel : getPair (last pair : (drop 1 (tail pixels)))
 
-dynToImg :: DynamicImage -> Image PixelRGB8
-dynToImg (ImageRGB8 img) = img
+pixelToList :: Pixel RGB Double -> [Int]
+pixelToList pixel = P.map (wToi) (toListPx (toWord8Px pixel))
 
-imgToList :: Image PixelRGB8 -> [[Int]]
-imgToList ([PixelRGB8] img) = map (pixelToList) img
+wToi :: Word8 -> Int
+wToi p = fromIntegral p
+iTod :: Int -> Double
+iTod p = fromIntegral p / 255.0
 
-pixelToList :: PixelRGB8 -> [Int]
-pixelToList (PixelRGB8 r g b) = pToi r : pToi g : pToi b :[]
+listToWord :: [Int] -> [Double]
+listToWord = P.map iTod
 
-pToi :: Pixel8 -> Int
-pToi p = fromIntegral p
+wordToPixel :: [Double] -> Pixel RGB Double
+wordToPixel (r:g:b:xs) = PixelRGB r g b :: Pixel RGB Double
 
--- [130, 105, 49] og B = [22, 168, 25] blir då A XOR B [148, 193, 40]
+listsToPixels :: [[Int]] -> [Pixel RGB Double]
+listsToPixels lists = P.map wordToPixel (P.map listToWord lists)
+
+combineLists :: [Pixel RGB Double] -> Int -> [[Pixel RGB Double]]
+combineLists [] lLength = []
+combineLists list lLength = 
+    take lLength list : combineLists (drop lLength list) lLength
+
 main :: IO ()
 main = do
-    Right inImage <- readImage "mush.png"
-    let image = dynToImg inImage
-    let list = imgToList image
-    print list
-
-
---list = [[240, 33, 11], [205, 111, 102], [120, 96, 7], [45, 3, 202], [76, 237, 47]]
+    image <- readImageRGB VU "mush.png"
+    let lists = toLists image
+    let converted = P.map (pixelToList) (concat lists)
+    let xored = (head converted) : (getPair converted)
+    let combined = combineLists (listsToPixels xored) (length (head lists))
+    I.writeImage "out.png" (fromLists combined :: Image VU RGB Double)
